@@ -1,0 +1,70 @@
+package(default_visibility=["//visibility:public"])
+
+exports_files(["tsconfig.json"])
+
+load("@npm_bazel_typescript//:index.bzl", "ts_library")
+
+ts_library(
+    name = "slinky_lib",
+    srcs = glob(["src/**/*.ts"]),
+    deps = [
+        "@npm//@types",
+    ],
+)
+
+load("@npm_bazel_rollup//:index.bzl", "rollup_bundle")
+
+rollup_bundle(
+    name = "slinky_chunks",
+    deps = ["slinky_lib"],
+    sourcemap = "inline",
+    entry_points = {
+        "src/index.ts": "index",
+    },
+    format = "iife",
+    output_dir = True,
+    args = [
+      "--output.name=slinky"
+    ]
+)
+
+load("@npm//@babel/cli:index.bzl", "babel")
+
+babel(
+    name = "slinky_chunks_es5",
+    data = [
+        "slinky_chunks",
+        ".babelrc",
+        "@npm//@babel/preset-env",
+    ],
+    output_dir = True,
+    args = [
+        "$(execpath slinky_chunks)",
+        "--config-file",
+        "./$(execpath .babelrc)",
+        "--out-dir",
+        "$(@D)",
+    ],
+)
+
+load("@npm_bazel_terser//:index.bzl", "terser_minified")
+
+terser_minified(
+    name = "slinky_chunks_es5.min",
+    src = "slinky_chunks_es5",
+)
+
+terser_minified(
+    name = "slinky_chunks.min",
+    src = "slinky_chunks",
+)
+
+load("@build_bazel_rules_nodejs//:index.bzl", "pkg_web")
+
+pkg_web(
+    name = "slinky",
+    srcs = [
+        "slinky_chunks_es5.min",
+        "slinky_chunks.min",
+    ],
+)
